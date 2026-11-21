@@ -1,84 +1,98 @@
-# RustOS Network Subsystem & Testing Report
+# RustOS – Network Subsystem and Testing Report
 
-## 1. Network Driver Architecture
-RustOS implements a native hardware driver for the **Realtek RTL8139** Fast Ethernet PCI controller, alongside a kernel ringbuffer loopback interface and a Linux supporting environment bridge.
+## 1. Introduction
 
-```
-+-------------------------------------------------------------+
-|               RustOS Network Interface Layer                |
-+------------------------------+------------------------------+
-|     eth0 (Realtek RTL8139)   |      lo0 (Kernel Loopback)   |
-|   Hardware PCI Packet Driver |    Zero-Copy Memory Buffer   |
-+------------------------------+------------------------------+
-                               |
-                               v
-+-------------------------------------------------------------+
-|                PCI Configuration Space Scan                 |
-|   Bus 0..4 | Device 0..31 | Vendor 0x10EC | Device 0x8139   |
-+-------------------------------------------------------------+
-                               |
-                               v
-+-------------------------------------------------------------+
-|              RTL8139 Physical Register Control              |
-|  - CR (0x37): Software Reset & Rx/Tx Enable                 |
-|  - CONFIG_1 (0x52): Power Management & Chip Wakeup          |
-|  - RBSTART (0x30): 9 KiB DMA Receive Ringbuffer             |
-|  - TSAD0..3 (0x20..0x2C): Physical DMA Transmit Buffers     |
-|  - TSD0..3 (0x10..0x1C): Packet Length & Transmit Trigger   |
-+-------------------------------------------------------------+
-```
+The RustOS networking subsystem is an educational implementation designed to explore how operating systems communicate with network hardware.
 
-## 2. Hardware Registers & Initialization Sequence
-When the kernel boots, `net::init_network()` performs the following register operations:
-1. **PCI Discovery**: Iterates across PCI buses `0..=4` using I/O ports `0xCF8` (Address) and `0xCFC` (Data). When Vendor `0x10EC` / Device `0x8139` is matched, reads BAR0 to locate the base I/O port (`0xC000`).
-2. **Bus Mastering Enable**: Writes `0x0005` (I/O Space Enable + Bus Master) to PCI Command Register `0x04`.
-3. **Chip Powerup**: Writes `0x00` to `CONFIG_1` (`offset 0x52`) to bring the physical transceiver out of low-power sleep mode.
-4. **Hardware Software Reset**: Writes `0x10` to Command Register (`offset 0x37`) and polls until bit 4 clears, resetting the internal state machine.
-5. **MAC Address Extraction**: Reads the 6 hardware registers `0x00..0x05`. In QEMU, the virtual card reports `52:54:00:12:34:56`.
-6. **DMA Rx Buffer Configuration**: Translates the virtual address of the 9 KiB static receive buffer into its physical memory address using `crate::memory::virt_to_phys()`, and writes the 32-bit address into `RBSTART` (`offset 0x30`).
-7. **Interrupt Mask & Receive Filters**: Programs `IMR` (`offset 0x3C`) with `0x0005` (ROK + TOK interrupts) and `RCR` (`offset 0x44`) with `0x0000008F` (AAP, APM, AM, AB, Wrap).
-8. **Transmitter & Receiver Activation**: Writes `0x0C` (TE | RE) to `CR` (`offset 0x37`), enabling wire transmission and reception.
+It covers PCI device identification, Ethernet driver architecture, network interfaces, packet transmission concepts, and loopback communication.
 
-## 3. Real Packet Transmission & Ping Verification
-When `ping <target>` is executed in the RustOS shell:
-- If target is external (e.g. `192.168.1.1`):
-  1. RustOS constructs an IEEE 802.3 Ethernet frame containing an ICMP Echo Request payload.
-  2. Embeds the hardware MAC address (`52:54:00:12:34:56`) as source MAC, and broadcast (`FF:FF:FF:FF:FF:FF`) as destination MAC.
-  3. Copies the frame into the active hardware descriptor `TX_BUFFERS[desc]`.
-  4. Writes the physical buffer address into `TSAD[desc]` and size into `TSD[desc]`.
-  5. The RTL8139 hardware transmits the frame onto the network wire.
-  6. High-precision PIT timer measures round-trip time (RTT).
+## 2. Network Driver Architecture
 
-### Live QEMU Execution Trace:
-```
-rustos> ifconfig
+RustOS includes networking-related source code for studying the Realtek RTL8139 Fast Ethernet controller.
 
-=== RustOS Network Interfaces (ifconfig) ===
-lo0    Link: Local Loopback  HWaddr: 00:00:00:00:00:00
-       inet addr: 127.0.0.1       Mask: 255.0.0.0
-       Status: UP LOOPBACK RUNNING  MTU: 65536
-       RX packets: 48  TX packets: 48  errors: 0
-       Driver: Kernel internal ringbuffer loopback
+The networking architecture can be understood through the following components:
 
-eth0   Link: Ethernet  HWaddr: 52:54:00:12:34:56
-       inet addr: 192.168.1.100   Mask: 255.255.255.0
-       Status: UP BROADCAST RUNNING MULTICAST (100 Mbps Full-Duplex)
-       I/O Port Base: 0xC000  DMA Rx Buffer: 9 KiB active
-       TX packets: 4  TX bytes: 256  RX packets: 4  RX bytes: 256
-       Hardware Driver: Realtek RTL8139 PCI Fast Ethernet Controller
+1. **PCI Device Discovery:** Identifies hardware devices using PCI configuration information.
+2. **Ethernet Driver:** Explores communication with an Ethernet controller through hardware registers.
+3. **Network Buffer:** Provides memory space for storing network data.
+4. **Loopback Interface:** Demonstrates communication within the same system.
+5. **Network Interface Layer:** Organizes network-related information and commands.
 
-wlan0  Link: IEEE 802.11ac  HWaddr: A8:93:4A:60:6E:3D
-       inet addr: 192.168.1.105 (Host-Bridged) Mask: 255.255.255.0
-       Status: HOST-BRIDGED (Realtek RTL8822CE Wireless Adapter on host laptop)
-       Supporting Layer: Linux/WSL vEthernet Virtual Bridge forwarder
-       Driver Note: Type 'wifi' to inspect hardware compatibility audit & limitations
+## 3. RTL8139 Hardware Concepts
 
-rustos> ping 192.168.1.1
-PING 192.168.1.1 with 32 bytes of ICMP packet data:
-Reply from 192.168.1.1: bytes=32 time=2ms TTL=64 seq=1 (via RTL8139 HW TX)
-Reply from 192.168.1.1: bytes=32 time=1ms TTL=64 seq=2 (via RTL8139 HW TX)
-Reply from 192.168.1.1: bytes=32 time=2ms TTL=64 seq=3 (via RTL8139 HW TX)
-Reply from 192.168.1.1: bytes=32 time=1ms TTL=64 seq=4 (via RTL8139 HW TX)
---- 192.168.1.1 ping statistics ---
-4 packets transmitted, 4 received, 0% packet loss
-```
+The RTL8139 controller uses several hardware registers to manage network operations.
+
+| Register | Purpose |
+|---|---|
+| CR (0x37) | Controls receiver and transmitter |
+| CONFIG_1 (0x52) | Controls device power configuration |
+| RBSTART (0x30) | Specifies the receive buffer address |
+| TSAD0–3 | Stores transmit buffer addresses |
+| TSD0–3 | Controls packet transmission |
+| IMR (0x3C) | Interrupt mask register |
+| RCR (0x44) | Receive configuration register |
+
+These registers are studied as part of understanding low-level Ethernet driver development.
+
+## 4. PCI Device Identification
+
+PCI (Peripheral Component Interconnect) allows the operating system to identify and communicate with hardware devices.
+
+The Realtek vendor ID is `0x10EC`, and the RTL8139 device ID is `0x8139`.
+
+RustOS includes networking source code that explores PCI identification and hardware configuration.
+
+Actual physical-device operation depends on the hardware and driver support available.
+
+## 5. Network Interfaces
+
+Operating systems commonly use different network interfaces.
+
+### Ethernet Interface (eth0)
+
+An Ethernet interface represents a wired network connection.
+
+### Loopback Interface (lo0)
+
+The loopback interface allows a system to communicate with itself.
+
+Its commonly used IPv4 address is `127.0.0.1`.
+
+### Wireless Interface (wlan0)
+
+A wireless interface represents a Wi-Fi connection.
+
+Supporting Wi-Fi requires additional firmware, device drivers, authentication, and wireless networking protocols.
+
+## 6. Network Testing Concepts
+
+The following concepts are relevant to evaluating a network subsystem:
+
+- PCI device identification
+- Network interface information
+- Ethernet frame structure
+- MAC addresses
+- Receive and transmit buffers
+- Loopback communication
+- ICMP and ping
+- Network packet transmission
+
+These concepts provide a foundation for understanding how an operating system manages network communication.
+
+## 7. Testing Limitations
+
+This report describes the networking architecture and concepts explored in RustOS.
+
+The presence of networking source code does not by itself prove successful communication with physical network hardware.
+
+Live Ethernet transmission, packet reception, external ping connectivity, and Wi-Fi bridging require separate implementation and testing.
+
+No QEMU-based testing is required for this university submission.
+
+## 8. Conclusion
+
+The RustOS networking subsystem provides an educational introduction to network hardware and operating system communication.
+
+It explores PCI identification, Ethernet registers, network interfaces, buffers, and packet transmission concepts.
+
+This module helps demonstrate the challenges involved in implementing networking support in a low-level operating system.
