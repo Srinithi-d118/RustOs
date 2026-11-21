@@ -1,90 +1,191 @@
-# Operating Systems Research Paper Connection & Theoretical Evaluation
+# Comparative Study of CPU Scheduling Algorithms in RustOS
 
-## Title: Comparative Evaluation of CPU Scheduling Algorithms in Educational Rust Microkernels
-**Author / Engineering Team**: RustOS Development Group  
-**Topic**: Empirical & Theoretical Comparison of FCFS, SJF, Priority, and Round Robin (RR) Scheduling
+## 1. Abstract and Objectives
 
----
+CPU scheduling is an important function of an operating system. It decides which process should receive CPU time and in what order.
 
-## 1. Abstract & Objectives
-Process scheduling is a foundational operating system abstraction responsible for allocating CPU execution time to competing threads. This study integrates a live scheduling benchmark suite directly into the RustOS kernel to empirically evaluate four classic scheduling paradigms under an identical, realistic OS kernel workload comprising interactive tasks (Space Shooter Game loop), I/O-bound tasks (Ethernet Packet Rx), and CPU-bound background batch jobs (APT Package Indexer).
+This study explores four commonly used CPU scheduling algorithms through the RustOS educational project:
 
----
+1. First Come First Served (FCFS)
+2. Shortest Job First (SJF)
+3. Priority Scheduling
+4. Round Robin (RR)
 
-## 2. Mathematical Formulations & Metrics
+The objective is to understand how different scheduling algorithms affect waiting time, turnaround time, fairness, and CPU utilization.
 
-1. **Turnaround Time ($TAT$)**:
-   $$\text{TAT}_i = \text{Completion Time}_i - \text{Arrival Time}_i$$
-   Represents total elapsed time from process admission to termination.
+This study provides a theoretical and educational comparison of these algorithms.
 
-2. **Waiting Time ($WT$)**:
-   $$\text{WT}_i = \text{Turnaround Time}_i - \text{Burst Time}_i = \text{TAT}_i - \text{BT}_i$$
-   Measures time spent idling in the ready queue.
+## 2. Scheduling Metrics
 
-3. **Average Waiting Time ($\overline{\text{WT}}$)**:
-   $$\overline{\text{WT}} = \frac{1}{n} \sum_{i=1}^n \text{WT}_i$$
+The following measurements are used to compare scheduling algorithms.
 
-4. **Normalized Turnaround Ratio**:
-   $$\text{NTAT}_i = \frac{\text{TAT}_i}{\text{BT}_i}$$
+### A. Turnaround Time (TAT)
 
----
+The total time taken by a process from arrival to completion.
 
-## 3. Benchmark Workload Specification
+**Formula:**
 
-| PID | Process Name | Arrival Time ($AT$) | Burst Time ($BT$) | Priority | Category |
-| :---: | :--- | :---: | :---: | :---: | :--- |
-| **P1** | Space Shooter Game Loop | 0 | 6 | 2 | Foreground Interactive |
-| **P2** | Ethernet Packet Rx | 2 | 2 | 1 | Urgent Hardware I/O |
-| **P3** | APT Package Indexer | 4 | 8 | 4 | Heavy Batch Job |
-| **P4** | Telemetry & Watchdog | 6 | 3 | 3 | Periodic Sentinel |
-| **P5** | Heap Defragmenter | 8 | 4 | 2 | System Maintenance |
+TAT = Completion Time − Arrival Time
 
----
+### B. Waiting Time (WT)
 
-## 4. Empirical Comparison Results (Executed in RustOS Kernel)
+The total time a process spends waiting for CPU execution.
 
-```
-================================================================================
-              RustOS Kernel Multi-Algorithm Scheduling Benchmark               
-  Workload: 5 Concurrent Mixed Interactive/Batch OS Kernel Processes (BT: 2-8)   
-================================================================================
-SCHEDULING ALGORITHM             AVG WT     AVG TAT    CSWITCH  UTIL (%)
---------------------------------------------------------------------------------
-First-Come First-Served (FCFS)    7.2        11.8       4        100%
-Shortest Job First (SJF Non-Prem) 4.0        8.6        4        100%
-Priority Scheduling (With Aging)  4.8        9.4        4        100%
-Round Robin (RR, Quantum = 2)     6.4        11.0       10       100%
-Round Robin (RR, Quantum = 4)     6.8        11.4       6        100%
---------------------------------------------------------------------------------
-```
+**Formula:**
 
----
+WT = Turnaround Time − Burst Time
 
-## 5. Theoretical Findings & Analysis
+### C. Average Waiting Time
 
-### A. The Convoy Effect in First-Come First-Served (FCFS)
-In FCFS, Process P1 arrives at $t=0$ with a burst of 6. Process P2 (an urgent Ethernet packet handler needing only 2 time units) arrives at $t=2$ but is forced to wait until $t=6$. This demonstrates the classic **Convoy Effect**: a long CPU-bound process blocks all subsequent short I/O-bound jobs, resulting in the highest Average Waiting Time (7.2 time units).
+The average waiting time of all processes.
 
-### B. Optimality & Starvation in Shortest Job First (SJF)
-By the rearrangement inequality, sequencing jobs in order of non-decreasing burst times provably minimizes average waiting time. SJF achieves an optimal $\overline{\text{WT}}$ of **4.0 time units**. However, under sustained load, if short processes continue to arrive, long jobs (such as P3 with burst 8) suffer from **Starvation** (indefinite postponement).
+**Formula:**
 
-### C. Priority Scheduling & Dynamic Aging Solution
-Priority scheduling dispatches high-priority I/O tasks immediately (P2 is dispatched at the earliest scheduling point). To prevent starvation of low-priority batch jobs (P3, Priority 4), RustOS implements **Dynamic Aging**:
-$$\text{Effective Priority}(t) = \text{Base Priority} - \left\lfloor \frac{\text{Waiting Time}}{\alpha} \right\rfloor$$
-This bounds the maximum latency of every process in the ready queue, achieving an $\overline{\text{WT}}$ of **4.8 time units**.
+Average WT = Total Waiting Time / Number of Processes
 
-### D. Round Robin (RR) Quantum Dynamics
-Round Robin enforces fairness and guarantees bounded response time. The benchmark evaluates two time quanta:
-- **$q = 2$**: Generates 10 context switches with an average waiting time of 6.4 time units. Guarantees sub-50ms response latency for interactive threads.
-- **$q = 4$**: Generates only 6 context switches with an average waiting time of 6.8 time units.
-- **Limiting Behavior**:
-  $$\lim_{q \to \infty} \text{RR} = \text{FCFS}$$
-  $$\lim_{q \to 0} \text{RR} = \text{Processor Sharing (Excessive Context Switch Overhead)}$$
+### D. Response Time
 
----
+The time between a process arriving and receiving the CPU for the first time.
 
-## 6. Microkernel Design Conclusion
-For modern educational microkernels, a **Multi-Level Feedback Queue (MLFQ)** provides the Pareto-optimal balance:
-- High-priority Round Robin queue ($q=2$) for interactive tasks (Space Shooter, shell).
-- Medium-priority Priority queue for hardware networking drivers (Realtek RTL8139).
-- Low-priority SJF/FCFS queue for background package management and indexers.
+### E. Context Switch
+
+A context switch occurs when the CPU changes from executing one process to another.
+
+## 3. Example Workload
+
+The following example workload is used to understand the scheduling algorithms.
+
+| Process | Arrival Time | Burst Time | Priority |
+|---|---:|---:|---:|
+| P1 – Game Loop | 0 | 6 | 2 |
+| P2 – Network Task | 2 | 2 | 1 |
+| P3 – Package Task | 4 | 8 | 4 |
+| P4 – Telemetry | 6 | 3 | 3 |
+| P5 – Memory Task | 8 | 4 | 2 |
+
+Lower priority numbers represent higher priority.
+
+## 4. Comparison of CPU Scheduling Algorithms
+
+### A. First Come First Served (FCFS)
+
+FCFS executes processes in the order they arrive.
+
+**Advantages:**
+- Simple to understand.
+- Easy to implement.
+- Processes are handled in arrival order.
+
+**Disadvantages:**
+- Short processes may wait behind long processes.
+- Can cause the convoy effect.
+
+### B. Shortest Job First (SJF)
+
+SJF selects the available process with the shortest CPU burst time.
+
+**Advantages:**
+- Can reduce average waiting time.
+- Suitable for workloads where burst times are known.
+
+**Disadvantages:**
+- Burst time must be estimated.
+- Longer processes may experience starvation.
+
+### C. Priority Scheduling
+
+Priority scheduling selects the process with the highest priority.
+
+**Advantages:**
+- Important tasks can execute earlier.
+- Useful when tasks have different levels of importance.
+
+**Disadvantages:**
+- Low-priority processes may wait for a long time.
+- Starvation can occur.
+
+**Solution – Aging:**
+
+Aging gradually improves the priority of waiting processes so that they eventually get CPU time.
+
+### D. Round Robin (RR)
+
+Round Robin gives each process a fixed amount of CPU time called a time quantum.
+
+After its time quantum expires, the process moves to the back of the ready queue if it is not completed.
+
+**Advantages:**
+- Provides fair CPU time sharing.
+- Suitable for interactive systems.
+- Improves response-time fairness.
+
+**Disadvantages:**
+- Very small time quanta cause more context switches.
+- Very large time quanta make it similar to FCFS.
+
+## 5. Example Calculation
+
+Consider the workload given in Section 3.
+
+For non-preemptive FCFS, the execution order is:
+
+P1 → P2 → P3 → P4 → P5
+
+The average waiting time is:
+
+(0 + 4 + 4 + 10 + 11) / 5 = **5.8 time units**
+
+The average turnaround time is:
+
+(6 + 6 + 12 + 13 + 15) / 5 = **10.4 time units**
+
+For non-preemptive SJF, selecting the shortest available process gives this order:
+
+P1 → P2 → P4 → P5 → P3
+
+The average waiting time is:
+
+(0 + 4 + 2 + 3 + 11) / 5 = **4.0 time units**
+
+The average turnaround time is:
+
+(6 + 6 + 5 + 7 + 19) / 5 = **8.6 time units**
+
+These are calculated example results, not measurements from physical hardware or a live kernel benchmark.
+
+## 6. Theoretical Comparison
+
+| Algorithm | Main Advantage | Main Limitation |
+|---|---|---|
+| FCFS | Simple execution order | Convoy effect |
+| SJF | Lower average waiting time in suitable workloads | Starvation |
+| Priority | Handles important tasks first | Low-priority starvation |
+| Round Robin | Fair CPU time sharing | Context-switch overhead |
+
+The comparison shows that each algorithm has different strengths and limitations.
+
+No single algorithm is ideal for every type of workload.
+
+## 7. Proposed Scheduling Improvement
+
+A possible improvement for a future version of RustOS is the Multi-Level Feedback Queue (MLFQ).
+
+MLFQ uses multiple priority queues and allows processes to move between queues based on their execution behaviour.
+
+For example:
+
+- Interactive tasks can receive higher priority.
+- CPU-intensive tasks can move to lower-priority queues.
+- Waiting processes can receive priority improvements.
+
+This approach can improve responsiveness and fairness.
+
+MLFQ is discussed as a proposed improvement, not as a claim that it has already been implemented in RustOS.
+
+## 8. Conclusion
+
+This study explains four important CPU scheduling algorithms and compares their advantages and limitations.
+
+FCFS is simple, SJF can reduce average waiting time, Priority Scheduling handles important tasks first, and Round Robin provides fair CPU time sharing.
+
+Through this study, RustOS demonstrates important operating system concepts and provides a foundation for understanding how a CPU manages multiple processes.
