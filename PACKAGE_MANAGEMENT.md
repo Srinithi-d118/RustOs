@@ -1,62 +1,123 @@
-# RustOS Package Management Architecture (APT & SnapStore)
+# RustOS – Package Management Architecture (APT and SnapStore)
 
-## 1. Overview & Pedagogical Objective
-RustOS provides two package management interfaces:
-1. **APT (Advanced Package Tool)**: Demonstrates traditional Debian-style package management, dependency resolution, package indices, and command activation hooks.
-2. **SnapStore / Snapd**: Demonstrates modern containerized application distribution, application ratings, multi-channel releases, and AppArmor security confinement profiles (`strict` vs `classic`).
+## 1. Introduction
 
-> **Honest Engineering Note**: These subsystems are educational demonstration layers implemented on bare-metal Rust. To execute full third-party Debian `.deb` binaries or Ubuntu `.snap` packages requiring `glibc` and `systemd`, RustOS integrates with the host WSL2 / Debian Linux supporting environment via `tools/support_env.sh`.
+RustOS includes two educational package management interfaces:
 
----
+1. **APT:** Demonstrates the basic concepts of traditional package management.
+2. **SnapStore:** Demonstrates the concept of an application store and package information.
 
-## 2. APT Subsystem Design & Dependency Resolution
-The APT database maintains metadata, file size, installation state, section, and dependency lists for kernel packages.
+These modules help explain how operating systems organize, install, remove, and manage software packages.
 
-### Package Catalogue:
-- `rust-core`: Core no_std kernel libraries, memory paging, and IDT exception vectors (Dependency root).
-- `net-tools`: Networking utilities (`ifconfig`, `ping`, PCI scanner).
-- `sys-bench`: Micro-benchmark suite (`bench` command).
-- `sched-sim`: Process scheduling simulator (`sched` command).
-- `rustos-shooter`: Retro arcade Space Shooter mini-game (`game` command).
-- `snake-arcade`: Classic grid-based Arcade Snake game (`snake` command).
-- `snap-core`: Snapd container runtime interface.
+**Note:** These are educational prototypes. They do not provide complete compatibility with Debian `.deb` packages or Ubuntu `.snap` packages.
 
-### Dynamic Shell Command Activation:
-When a package is installed via `apt install <name>`, RustOS activates the associated shell command. If uninstalled via `apt remove <name>`, the command hook is deactivated:
+## 2. APT Package Management
+
+APT stands for Advanced Package Tool.
+
+It is commonly used in Linux distributions such as Ubuntu and Debian to manage software packages.
+
+The RustOS APT prototype demonstrates:
+
+- Package listing
+- Package searching
+- Installation commands
+- Package removal
+- Package information
+- Basic dependency concepts
+
+### Example Package Catalogue
+
+| Package Name | Purpose |
+|---|---|
+| rust-core | Core operating system components |
+| net-tools | Networking-related utilities |
+| sys-bench | Performance measurement concepts |
+| sched-sim | CPU scheduling demonstration |
+| rustos-shooter | Space Shooter game module |
+| snake-arcade | Snake game module |
+| snap-core | SnapStore-related demonstration |
+
+## 3. Package Installation Concept
+
+A package manager allows users to install and remove software through commands.
+
+Example:
+
+```text
+rustos> apt list
 ```
-rustos> snake
-Command 'snake' not found, but can be installed with:
-  apt install snake-arcade
 
+This command demonstrates displaying the available package catalogue.
+
+Example installation command:
+
+```text
 rustos> apt install snake-arcade
-Reading package lists... Done
-Building dependency tree... Done
-The following NEW package will be installed:
-  snake-arcade
-0 upgraded, 1 newly installed, 0 to remove.
-Need to get 48 KB of archives.
-Unpacking snake-arcade (1.0.0-rustos1) ...
-Setting up snake-arcade ...
-Activating command hooks in RustOS shell... OK
-Installation of 'snake-arcade' completed successfully.
-
-rustos> snake
-[Launches Playable Arcade Snake Game]
 ```
 
----
+Example removal command:
 
-## 3. SnapStore Architecture & Confinement
-SnapStore provides application sandboxing visualization:
-- **Strict Confinement**: Complete security isolation (used by games and untrusted tools).
-- **Classic Confinement**: Direct system and hardware access (used by low-level profiling tools like `sys-bench`).
-
+```text
+rustos> apt remove snake-arcade
 ```
+
+The prototype demonstrates package management operations within the RustOS environment.
+
+## 4. SnapStore Architecture
+
+SnapStore is an educational application-store interface inspired by modern software distribution platforms.
+
+It demonstrates concepts such as:
+
+- Application listings
+- Package versions
+- Release channels
+- Application information
+- Installation status
+- Security and application isolation concepts
+
+### Example Application Listing
+
+```text
 rustos> snap list
-Name             Version    Rev    Tracking       Publisher          Notes     
---------------------------------------------------------------------------------
-rustos-shooter   v1.2.0     14     latest/stable  RustOS Core Team   strict    
-sys-bench        v2.0.1     42     latest/stable  Performance Lab    classic   
-sched-sim        v2.0.0     56     latest/stable  Systems Engineering strict    
-netmon           v1.4.2     70     latest/stable  NetOps             strict    
+
+Name             Version    Channel
+------------------------------------
+rustos-shooter   1.2.0      stable
+sys-bench        2.0.1      stable
+sched-sim        2.0.0      stable
+netmon           1.4.0      stable
 ```
+
+This output illustrates how an application store can display installed applications and their versions.
+
+## 5. Security Concepts
+
+Application isolation is an important concept in modern operating systems.
+
+Two common confinement approaches are:
+
+**Strict Confinement:** Restricts an application's access to system resources.
+
+**Classic Confinement:** Allows broader access to the host system.
+
+RustOS uses these concepts to explain the importance of application permissions and security.
+
+These descriptions are educational; they do not claim that full AppArmor or Snap confinement is implemented.
+
+## 6. Advantages of Package Management
+
+- Makes software organization easier.
+- Provides a structured way to list applications.
+- Demonstrates installation and removal workflows.
+- Introduces package versions and dependencies.
+- Helps explain software security and application isolation.
+
+## 7. Conclusion
+
+The RustOS package management module demonstrates the fundamental ideas behind APT and SnapStore.
+
+It provides an educational understanding of package catalogues, installation, removal, application information, and security concepts.
+
+These prototypes help explain how operating systems manage software and applications.
