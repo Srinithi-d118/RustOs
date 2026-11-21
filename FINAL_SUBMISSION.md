@@ -1,39 +1,178 @@
-# RustOS Final Submission Document & Project Defense Summary
+# RustOS – Final Project Submission and Defense Summary
 
-## 1. Executive Summary
-**Project Title**: RustOS: An Educational 64-Bit Operating System Kernel in Rust  
-**Language & Target**: Rust 2024 Edition (`no_std`, `no_main`), `x86_64-unknown-none`  
-**Core Features Achieved**:
-1. Standalone 64-bit Long Mode bootable kernel with GDT, TSS IST, IDT, and 4-level paging.
-2. 1024 KiB dynamic kernel heap allocator with zero compiler warnings.
-3. Native Realtek RTL8139 PCI Fast Ethernet network driver with live wire frame transmission.
-4. Comprehensive laptop hardware audit (HP Laptop 15s-du3xxx, Intel Core i3-1125G4, Realtek RTL8822CE Wi-Fi, Realtek PCIe GbE NIC).
-5. Theoretical and empirical CPU scheduling subsystem connected to Operating Systems research paper (FCFS, SJF, Priority with aging, Round Robin with ASCII Gantt charts).
-6. Integrated Debian-compatible APT package manager and SnapStore application center with dynamic command activation hooks.
-7. Two playable retro arcade games: Space Shooter and Snake Classic.
-8. Boot-time telemetry subsystem using CPU Time Stamp Counter (`rdtsc`) recording all milestones.
-9. Automated bootable El Torito ISO generation pipeline (`tools/build_iso.sh`) verified in QEMU.
-10. Complete documentation suite ready for university evaluation and defense.
+## 1. Project Overview
 
----
+**Project Title:** RustOS – An Educational Operating System Kernel in Rust
 
-## 2. Answers to Defense Questions
+**Programming Language:** Rust
 
-### Q1: Why use Rust instead of C or C++ for an OS kernel?
-**Answer**: Rust provides compile-time memory safety, eliminating entire classes of critical kernel vulnerabilities such as buffer overflows, use-after-free, double-free, and data races—all without requiring a runtime garbage collector. Through zero-cost abstractions, Rust achieves performance and code density equivalent to C while maintaining type safety.
+**Target Architecture:** x86_64
 
-### Q2: How does RustOS handle multitasking?
-**Answer**: RustOS demonstrates two levels of multitasking:
-1. **Cooperative Multitasking**: An async `SimpleExecutor` evaluating futures and Wakers.
-2. **Preemptive Scheduling Simulation**: A comprehensive process control block (PCB) scheduler implementing FCFS, SJF, Priority (with dynamic aging), and Round Robin (RR), backed by the PIT hardware timer at ~100 Hz.
+**Development Environment:** Ubuntu / Linux (WSL2)
 
-### Q3: Why is bare-metal Wi-Fi difficult on a toy microkernel?
-**Answer**: IEEE 802.11ac Wi-Fi cards (such as the Realtek RTL8822CE) require proprietary microcode firmware blobs to be uploaded to the baseband chip, alongside complex frequency calibration and WPA2/WPA3 4-way cryptographic handshakes. RustOS transparently addresses this by implementing a Linux Supporting Environment Bridge (via WSL2 / TAP virtual switch), which terminates the wireless physical link and feeds standard Ethernet frames into the bare-metal RTL8139 stack.
+RustOS is an educational operating system project developed using Rust. The main objective is to understand the internal working of an operating system through kernel development and implementation of fundamental OS concepts.
 
----
+The project explores memory management, interrupt handling, CPU scheduling, command-line interfaces, networking concepts, and package management.
 
-## 3. Hugging Face Assessment (Stage 9)
-- **Applicability Assessment**: Hugging Face is primarily optimized for machine learning models, datasets, and Gradio/Streamlit AI spaces. A bare-metal x86_64 Rust operating system kernel is not a neural network model.
-- **Appropriate Release Strategy**:
-  1. **GitHub**: The primary home for the source code, issue tracking, CI/CD, and release binaries (`bootimage-rust_os.bin` and `rust_os.iso`).
-  2. **Hugging Face Hub (Dataset/Model Card Repository)**: If desired, the repository can host the bootable ISO images and benchmark datasets (`scheduling_benchmarks.json`) with an interactive QEMU WebAssembly emulator space.
+## 2. Main Features
+
+### 2.1 Kernel Architecture
+- Educational 64-bit kernel architecture.
+- Global Descriptor Table (GDT).
+- Interrupt Descriptor Table (IDT).
+- Interrupt handling mechanisms.
+- Low-level system programming using Rust.
+
+### 2.2 Memory Management
+- Paging concepts.
+- Physical memory frame allocation.
+- Kernel heap allocation.
+- Memory management techniques.
+
+### 2.3 CPU Scheduling
+
+The project includes implementations of four CPU scheduling algorithms:
+
+1. First Come First Served (FCFS)
+2. Shortest Job First (SJF)
+3. Priority Scheduling
+4. Round Robin (RR)
+
+These algorithms are compared using waiting time and turnaround time.
+
+### 2.4 Command-Line Interface
+
+RustOS includes a command-line interface that allows users to explore available commands and system-related information.
+
+### 2.5 Package Management
+
+The project includes educational APT and SnapStore-style package management prototypes.
+
+These demonstrate package listing, searching, installation, removal, and application management concepts.
+
+### 2.6 Networking Concepts
+
+The networking module explores PCI device detection, network interfaces, and Ethernet driver development.
+
+### 2.7 Games
+
+The project includes two educational arcade game modules:
+
+- Space Shooter
+- Snake Classic
+
+### 2.8 Boot-Time Analysis
+
+A boot-time measurement module is included to study kernel initialization stages and timing information.
+
+## 3. Technologies Used
+
+- Rust programming language
+- HTML
+- CSS
+- JavaScript
+- Ubuntu / Linux
+- Git and GitHub
+- Hugging Face Spaces
+
+## 4. Browser-Based Demonstration
+
+An interactive browser-based demonstration is hosted on Hugging Face Spaces.
+
+**Demo Link:** https://huggingface.co/spaces/srinithikannan/RustOS
+
+The demonstration provides a terminal-style interface where users can enter commands and view sample outputs.
+
+**Important:** The browser demonstration is a visual simulation. It does not directly boot or execute the actual RustOS kernel.
+
+## 5. Building the Project
+
+### Prerequisites
+
+- Rust Nightly toolchain
+- rust-src
+- llvm-tools-preview
+- bootimage
+- Ubuntu or a suitable Linux environment
+
+### Install Required Components
+
+```bash
+rustup default nightly
+rustup component add rust-src llvm-tools-preview
+cargo install bootimage
+```
+
+### Build the Kernel
+
+```bash
+cargo build
+```
+
+### Generate the Bootable Image
+
+```bash
+cargo bootimage
+```
+
+The generated output depends on the project configuration.
+
+## 6. Important Operating System Concepts
+
+The project helps demonstrate and understand:
+
+- Kernel architecture
+- Memory allocation and paging
+- Interrupt handling
+- CPU scheduling
+- Process management concepts
+- Networking concepts
+- Package management
+- Command-line interfaces
+- System initialization and boot-time analysis
+
+## 7. Possible Viva Questions and Answers
+
+### Q1. Why did you choose Rust for operating system development?
+
+Rust provides memory safety features and helps prevent common programming errors. It also provides low-level control, making it suitable for systems programming.
+
+### Q2. What is a kernel?
+
+A kernel is the core part of an operating system. It manages hardware resources and provides essential services to programs.
+
+### Q3. What is memory management?
+
+Memory management is the process of allocating, tracking, and managing computer memory.
+
+### Q4. What is CPU scheduling?
+
+CPU scheduling is the method used by an operating system to decide which process gets CPU time.
+
+### Q5. What is FCFS scheduling?
+
+First Come First Served is a scheduling algorithm in which the process that arrives first gets executed first.
+
+### Q6. What is Round Robin scheduling?
+
+Round Robin gives each process a fixed amount of CPU time called a time quantum.
+
+### Q7. What is an interrupt?
+
+An interrupt is a signal that temporarily stops the current execution so the processor can handle an event that needs attention.
+
+### Q8. What is the purpose of a command-line interface?
+
+A command-line interface allows users to interact with a system by entering text commands.
+
+### Q9. What is the purpose of the Hugging Face demonstration?
+
+It provides a browser-based terminal interface to showcase sample RustOS commands and their outputs. It is a visual simulation, not actual kernel execution.
+
+## 8. Conclusion
+
+RustOS is an educational operating system project developed to explore the fundamentals of operating system design using Rust.
+
+It combines kernel source code, memory management, CPU scheduling, interrupt handling, networking concepts, package management prototypes, technical documentation, and a browser-based demonstration.
+
+The project provides practical learning about operating system architecture and the role of different components in managing computer resources.
